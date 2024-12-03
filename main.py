@@ -5,22 +5,24 @@ from PIL import Image, ImageDraw
 IMAGE_WIDTH = 100
 IMAGE_HEIGHT = 100
 
-N_IMAGES = 6
+N_IMAGES = 8
 
 images1 = [
-    "image1.png",
-    "image2.png",
-    "image3.png",
-    "image4.png"
+    "verkleed/image1.jpg",
+    "verkleed/image2.jpg",
+    "verkleed/image3.jpg",
+    "verkleed/image4.jpg"
 ]
 
 images2 = [
-    "image5.png",
-    "image6.png",
-    "image7.png",
-    "image8.png",
-    "image7.png",
-    "image8.png"
+    "normaal/image1.jpg",
+    "normaal/image2.jpg",
+    "normaal/image3.jpg",
+    "normaal/image4.jpg",
+    "normaal/image5.jpg",
+    "normaal/image6.jpg",
+    "normaal/image7.jpg",
+    "normaal/image8.jpg"
 ]
 
 # Initialize session state for selected image if not already done
@@ -49,7 +51,7 @@ def create_image(selected_image=None):
     for i, img_path in enumerate(images2):
         img = Image.open(img_path)
         img = img.resize((IMAGE_WIDTH, IMAGE_HEIGHT))
-        x, y = IMAGE_WIDTH * 2, padding + i * (IMAGE_HEIGHT + 25)
+        x, y = IMAGE_WIDTH * 2, i * (IMAGE_HEIGHT + 25)
         dst.paste(img, (x, y))
 
         # Draw a green border if the image is selected
@@ -81,7 +83,7 @@ def determine_clicked_image(value):
     # Check if clicked on images2
     if IMAGE_WIDTH * 2 <= x <= IMAGE_WIDTH * 3:
         for i, img_path in enumerate(images2):
-            img_y = padding + i * (IMAGE_HEIGHT + 25)
+            img_y = i * (IMAGE_HEIGHT + 25)
             if img_y <= y <= img_y + IMAGE_HEIGHT:
                 return img_path
 
