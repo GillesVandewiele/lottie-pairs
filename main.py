@@ -26,64 +26,86 @@ images2 = [
     "normaal/image8.jpg"
 ]
 
-# Initialize session state for selected image and composite image
-if "selected_image" not in st.session_state:
-    st.session_state.selected_image = None
-if "composite_image" not in st.session_state:
-    st.session_state.composite_image = None
-
 padding = ((len(images2) * (IMAGE_HEIGHT + SPACING)) - (len(images1) * (IMAGE_HEIGHT + SPACING))) // 2
 
-@st.cache_data
-def load_and_resize_image(image_path, width, height):
-    """
-    Load and resize an image, caching the result.
-    """
-    img = Image.open(image_path).resize((width, height))
-    return img
 
-def create_image(selected_image=None):
-    # Determine the width and height for the canvas
-    # Determine canvas size
+
+@st.cache_data
+def create_base_image():
+    """
+    Create the composite image once and cache it.
+    """
     row1_count = len(images1)
     row2_count = len(images2)
     canvas_width = max(row1_count, row2_count) * (IMAGE_WIDTH + SPACING) - SPACING
-    canvas_height = 2 * (IMAGE_HEIGHT + SPACING)  # Two rows
+    canvas_height = 10 + 2 * (IMAGE_HEIGHT + SPACING)
 
-    dst = Image.new('RGB', (canvas_width, canvas_height), "white")
-    draw = ImageDraw.Draw(dst)
+    dst = Image.new("RGB", (canvas_width, canvas_height), "white")
 
     # Add images for the first row
     for i, img_path in enumerate(images1):
-        img = load_and_resize_image(img_path, IMAGE_WIDTH, IMAGE_HEIGHT)
-        x, y = padding + i * (IMAGE_WIDTH + SPACING), 0
+        img = Image.open(img_path).resize((IMAGE_WIDTH, IMAGE_HEIGHT))
+        x, y = padding + i * (IMAGE_WIDTH + SPACING), 10
         dst.paste(img, (x, y))
-
-        # Draw a green border if the image is selected
-        if selected_image == img_path:
-            draw.rectangle(
-                [x, y, x + IMAGE_WIDTH, y + IMAGE_HEIGHT],
-                outline="green",
-                width=5,
-            )
 
     # Add images for the second row
     for i, img_path in enumerate(images2):
-        img = load_and_resize_image(img_path, IMAGE_WIDTH, IMAGE_HEIGHT)
-        x, y = i * (IMAGE_WIDTH + SPACING), IMAGE_HEIGHT + SPACING
+        img = Image.open(img_path).resize((IMAGE_WIDTH, IMAGE_HEIGHT))
+        x, y = i * (IMAGE_WIDTH + SPACING), 10 + IMAGE_HEIGHT + SPACING
         dst.paste(img, (x, y))
-
-        # Draw a green border if the image is selected
-        if selected_image == img_path:
-            draw.rectangle(
-                [x, y, x + IMAGE_WIDTH, y + IMAGE_HEIGHT],
-                outline="green",
-                width=5,
-            )
 
     return dst
 
 
+def highlight_selection(base_image, selected_image):
+    """
+    Draw a highlight rectangle on top of the base image.
+    """
+    overlay = base_image.copy()  # Work on a copy to avoid modifying the cached base image
+    draw = ImageDraw.Draw(overlay)
+    WIDTH = 5
+
+    for i, img_path in enumerate(images1):
+        x, y = padding + i * (IMAGE_WIDTH + SPACING), 10
+        draw.rectangle(
+            [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
+            outline="white",
+            width=WIDTH
+        )
+
+    for i, img_path in enumerate(images2):
+        x, y = i * (IMAGE_WIDTH + SPACING), 10 + IMAGE_HEIGHT + SPACING
+        draw.rectangle(
+            [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
+            outline="white",
+            width=WIDTH
+        )
+
+    # Highlight in the first row
+    for i, img_path in enumerate(images1):
+        x, y = padding + i * (IMAGE_WIDTH + SPACING), 10
+        if img_path == selected_image:
+            draw.rectangle(
+                [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
+                outline="green",
+                width=WIDTH
+            )
+
+    # Highlight in the second row
+    for i, img_path in enumerate(images2):
+        x, y = i * (IMAGE_WIDTH + SPACING), 10 + IMAGE_HEIGHT + SPACING
+        if img_path == selected_image:
+            draw.rectangle(
+                [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
+                outline="green",
+                width=WIDTH
+            )
+
+    return overlay
+
+
+
+# Determine which image was clicked
 def determine_clicked_image(value):
     if value is None:
         return None
@@ -106,26 +128,25 @@ def determine_clicked_image(value):
 
     return None
 
+if "selected_image" not in st.session_state:
+    st.session_state.selected_image = None
 
-# Render the interactive image
-if st.session_state.composite_image is None:
-    st.session_state.composite_image = create_image(st.session_state.selected_image)
+# Cache the base image
+if "base_image" not in st.session_state:
+    st.session_state.base_image = create_base_image()
 
+# Render the composite image and detect clicks
 placeholder = st.empty()
 with placeholder.container():
     value = streamlit_image_coordinates(
-        st.session_state.composite_image,
+        st.session_state.base_image,  # Using cached base image
     )
 
-# Determine which image was clicked
+# Update session state for selected image
 clicked_image = determine_clicked_image(value)
 
-# Update the session state and immediately update the displayed image
 if clicked_image and clicked_image != st.session_state.selected_image:
-    st.session_state.selected_image = clicked_image
-    st.session_state.composite_image = create_image(st.session_state.selected_image)
-
+    st.session_state.selected_image = clicked_image  # Update selected image only if it's new
+    st.session_state.base_image = highlight_selection(st.session_state.base_image, st.session_state.selected_image)
     with placeholder.container():
-        value = streamlit_image_coordinates(
-            st.session_state.composite_image,
-        )
+        value = streamlit_image_coordinates(st.session_state.base_image)
