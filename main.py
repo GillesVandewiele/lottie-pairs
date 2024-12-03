@@ -30,7 +30,7 @@ padding = ((len(images2) * (IMAGE_HEIGHT + SPACING)) - (len(images1) * (IMAGE_HE
 
 
 
-@st.cache_data
+@st.cache_resource
 def create_base_image():
     """
     Create the composite image once and cache it.
