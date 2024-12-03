@@ -34,9 +34,17 @@ if "composite_image" not in st.session_state:
 
 padding = ((len(images2) * (IMAGE_HEIGHT + SPACING)) - (len(images1) * (IMAGE_HEIGHT + SPACING))) // 2
 
+@st.cache_data
+def load_and_resize_image(image_path, width, height):
+    """
+    Load and resize an image, caching the result.
+    """
+    img = Image.open(image_path).resize((width, height))
+    return img
 
 def create_image(selected_image=None):
     # Determine the width and height for the canvas
+    # Determine canvas size
     row1_count = len(images1)
     row2_count = len(images2)
     canvas_width = max(row1_count, row2_count) * (IMAGE_WIDTH + SPACING) - SPACING
@@ -47,7 +55,7 @@ def create_image(selected_image=None):
 
     # Add images for the first row
     for i, img_path in enumerate(images1):
-        img = Image.open(img_path).resize((IMAGE_WIDTH, IMAGE_HEIGHT))
+        img = load_and_resize_image(img_path, IMAGE_WIDTH, IMAGE_HEIGHT)
         x, y = padding + i * (IMAGE_WIDTH + SPACING), 0
         dst.paste(img, (x, y))
 
@@ -61,7 +69,7 @@ def create_image(selected_image=None):
 
     # Add images for the second row
     for i, img_path in enumerate(images2):
-        img = Image.open(img_path).resize((IMAGE_WIDTH, IMAGE_HEIGHT))
+        img = load_and_resize_image(img_path, IMAGE_WIDTH, IMAGE_HEIGHT)
         x, y = i * (IMAGE_WIDTH + SPACING), IMAGE_HEIGHT + SPACING
         dst.paste(img, (x, y))
 
