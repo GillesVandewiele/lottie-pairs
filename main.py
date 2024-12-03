@@ -28,9 +28,7 @@ images2 = [
 
 padding = ((len(images2) * (IMAGE_HEIGHT + SPACING)) - (len(images1) * (IMAGE_HEIGHT + SPACING))) // 2
 
-
-
-@st.cache_resource
+@st.cache_data
 def create_base_image():
     """
     Create the composite image once and cache it.
@@ -57,14 +55,15 @@ def create_base_image():
     return dst
 
 
-def highlight_selection(base_image, selected_image):
+def highlight_selection(base_image, selected_image1, selected_image2, connected_pairs, drawn_lines):
     """
-    Draw a highlight rectangle on top of the base image.
+    Draw highlight rectangles and a line between the centers of the selected images.
     """
     overlay = base_image.copy()  # Work on a copy to avoid modifying the cached base image
     draw = ImageDraw.Draw(overlay)
     WIDTH = 5
 
+    # Draw white boxes (reset)
     for i, img_path in enumerate(images1):
         x, y = padding + i * (IMAGE_WIDTH + SPACING), 10
         draw.rectangle(
@@ -81,34 +80,56 @@ def highlight_selection(base_image, selected_image):
             width=WIDTH
         )
 
-    # Highlight in the first row
+    # Highlight the selected image in row 1
     for i, img_path in enumerate(images1):
         x, y = padding + i * (IMAGE_WIDTH + SPACING), 10
-        if img_path == selected_image:
+        if img_path == selected_image1:
             draw.rectangle(
                 [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
                 outline="green",
                 width=WIDTH
             )
 
-    # Highlight in the second row
+    # Highlight the selected image in row 2
     for i, img_path in enumerate(images2):
         x, y = i * (IMAGE_WIDTH + SPACING), 10 + IMAGE_HEIGHT + SPACING
-        if img_path == selected_image:
+        if img_path == selected_image2:
             draw.rectangle(
                 [x - WIDTH, y - WIDTH, x + IMAGE_WIDTH + WIDTH, y + IMAGE_HEIGHT + WIDTH],
                 outline="green",
                 width=WIDTH
             )
 
-    return overlay
+    # Draw a line between the centers of the selected images
+    if selected_image1 and selected_image2:
+        idx1 = images1.index(selected_image1) if selected_image1 in images1 else None
+        idx2 = images2.index(selected_image2) if selected_image2 in images2 else None
+
+        if idx1 is not None and idx2 is not None:
+            center1 = (padding + idx1 * (IMAGE_WIDTH + SPACING) + IMAGE_WIDTH // 2,
+                       10 + IMAGE_HEIGHT // 2)
+            center2 = (idx2 * (IMAGE_WIDTH + SPACING) + IMAGE_WIDTH // 2,
+                       10 + IMAGE_HEIGHT + SPACING + IMAGE_HEIGHT // 2)
+
+            draw.line([center1, center2], fill="blue", width=2)
+
+            # Store the connected pair
+            connected_pairs.append((selected_image1, selected_image2))
+
+            # Store the drawn line
+            drawn_lines.append([center1, center2])
+
+    # Redraw all previous lines
+    for line in drawn_lines:
+        draw.line(line, fill="blue", width=2)
+
+    return overlay, connected_pairs, drawn_lines
 
 
-
-# Determine which image was clicked
+# Determine which image was clicked and which row it belongs to
 def determine_clicked_image(value):
     if value is None:
-        return None
+        return None, None
 
     x, y = value["x"], value["y"]
 
@@ -117,19 +138,28 @@ def determine_clicked_image(value):
         for i, img_path in enumerate(images1):
             img_x = padding + i * (IMAGE_WIDTH + SPACING)
             if img_x <= x <= img_x + IMAGE_WIDTH:
-                return img_path
+                return img_path, 1  # Row 1
 
     # Check if clicked on images2 (row 2)
     if IMAGE_HEIGHT + SPACING <= y <= 2 * IMAGE_HEIGHT + SPACING:
         for i, img_path in enumerate(images2):
             img_x = i * (IMAGE_WIDTH + SPACING)
             if img_x <= x <= img_x + IMAGE_WIDTH:
-                return img_path
+                return img_path, 2  # Row 2
 
-    return None
+    return None, None
 
-if "selected_image" not in st.session_state:
-    st.session_state.selected_image = None
+if "selected_image1" not in st.session_state:
+    st.session_state.selected_image1 = None
+
+if "selected_image2" not in st.session_state:
+    st.session_state.selected_image2 = None
+
+if "connected_pairs" not in st.session_state:
+    st.session_state.connected_pairs = []
+
+if "drawn_lines" not in st.session_state:
+    st.session_state.drawn_lines = []
 
 # Cache the base image
 if "base_image" not in st.session_state:
@@ -143,10 +173,41 @@ with placeholder.container():
     )
 
 # Update session state for selected image
-clicked_image = determine_clicked_image(value)
+clicked_image, row = determine_clicked_image(value)
 
-if clicked_image and clicked_image != st.session_state.selected_image:
-    st.session_state.selected_image = clicked_image  # Update selected image only if it's new
-    st.session_state.base_image = highlight_selection(st.session_state.base_image, st.session_state.selected_image)
-    with placeholder.container():
-        value = streamlit_image_coordinates(st.session_state.base_image)
+try:
+    if clicked_image:
+        if row == 1 and clicked_image != st.session_state.selected_image1:
+            st.session_state.selected_image1 = clicked_image  # Update selected image for row 1
+        elif row == 2 and clicked_image != st.session_state.selected_image2:
+            st.session_state.selected_image2 = clicked_image  # Update selected image for row 2
+
+        # Update the base image and add connection logic
+        st.session_state.base_image, st.session_state.connected_pairs, st.session_state.drawn_lines = highlight_selection(
+            st.session_state.base_image, 
+            st.session_state.selected_image1, 
+            st.session_state.selected_image2, 
+            st.session_state.connected_pairs,
+            st.session_state.drawn_lines
+        )
+
+        if st.session_state.selected_image1 and st.session_state.selected_image2:
+            # Clear the selections
+            st.session_state.selected_image1 = None
+            st.session_state.selected_image2 = None
+
+        # Enable submit button when all pairs are connected
+        row_with_fewer_images = images1 if len(images1) <= len(images2) else images2
+        total_required_connections = len(row_with_fewer_images)
+
+        if len(st.session_state.connected_pairs) == total_required_connections:
+            submit_button_enabled = True
+        else:
+            submit_button_enabled = False
+
+        # Render the submit button
+        submit_button = st.button("Submit", disabled=not submit_button_enabled)
+        with placeholder.container():
+            value = streamlit_image_coordinates(st.session_state.base_image)  # No unique key, single component for both rows
+except:
+    pass
