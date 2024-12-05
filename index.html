@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect the Pairs Game</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-around;
+            padding: 5px;
+            flex-wrap: wrap;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 45%;
+            margin: 10px;
+        }
+
+        .image {
+            margin: 10px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .selected {
+            border: 2px solid green;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        #submitButton {
+            margin-top: 20px;
+            display: block;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="column" id="leftColumn"></div>
+        <div class="column" id="rightColumn"></div>
+    </div>
+
+    <button id="submitButton" disabled>Submit</button>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const images1 = [
+            "verkleed/image1.jpg",
+            "verkleed/image2.jpg",
+            "verkleed/image3.jpg",
+            "verkleed/image4.jpg"
+        ];
+
+        const images2 = [
+            "normaal/image1.jpg",
+            "normaal/image2.jpg",
+            "normaal/image3.jpg",
+            "normaal/image4.jpg",
+            "normaal/image5.jpg",
+            "normaal/image6.jpg",
+            "normaal/image7.jpg",
+            "normaal/image8.jpg"
+        ];
+
+        let selectedLeft = null;
+        let selectedLeftID = null;
+        let selectedRight = null;
+        let selectedRightID = null;
+        let connections = []; // store connected pairs
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const AIRTABLE_APP_NAME = 'appSkNKCFWFAqncaM';
+        const AIRTABLE_PERSONAL_ACCESS_TOKEN = 'patajK9aNxFEYcFtM.3de4d2dd1d5994c3ecf40ae811511d0d45a155efb822b8de9c532310af0376d0';
+        const AIRTABLE_TABLE_NAME = 'Table 1'
+        const AIRTABLE_API_URL = 'https://api.airtable.com/v0/'+AIRTABLE_APP_NAME+'/'+AIRTABLE_TABLE_NAME;
+
+        function drawLine() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // clear previous lines
+            for (const connection of connections) {
+                const leftImage = document.getElementById(`${connection[0]}`);
+                const rightImage = document.getElementById(`${connection[1]}`);
+                const leftRect = leftImage.getBoundingClientRect();
+                const rightRect = rightImage.getBoundingClientRect();
+
+                ctx.beginPath();
+                ctx.moveTo(leftRect.right, leftRect.top + leftRect.height / 2);
+                ctx.lineTo(rightRect.left, rightRect.top + rightRect.height / 2);
+                ctx.strokeStyle = "#0000ff";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function handleImageClick(column, index) {
+            const isLeftColumn = column === 'left';
+            const imageId = isLeftColumn ? `left-${index}` : `right-${index}`;
+            const imageElement = document.getElementById(imageId);
+            const isSelected = imageElement.classList.contains("selected");
+
+            if (isLeftColumn) {
+                if (selectedLeftID && selectedLeftID !== imageId) {
+                    selectedLeft.classList.remove("selected");
+                }
+
+                selectedLeftID = imageId;
+                selectedLeft = imageElement;
+            } else {
+                if (selectedRightID && selectedRightID !== imageId) {
+                    selectedRight.classList.remove("selected");
+                }
+                selectedRightID = imageId;
+                selectedRight = imageElement;
+            }
+
+            imageElement.classList.add("selected");
+
+            if (selectedLeft && selectedRight) {
+                // const leftIndex = images1.indexOf(selectedLeftID.split("-")[1]);
+                // const rightIndex = images2.indexOf(selectedRightID.split("-")[1]);
+
+                console.log(connections, selectedLeftID, selectedRightID)
+
+                // Remove existing connections if the same pair is selected
+                connections = connections.filter((pair, ix) => 
+                    (pair[0] !== selectedLeftID && pair[1] !== selectedRightID)
+                );
+                connections.push([selectedLeftID, selectedRightID]);
+
+                if(connections.length == Math.min(images1.length, images2.length)){
+                    document.getElementById("submitButton").disabled = false;
+
+                }
+
+                // Draw lines between all connections
+                drawLine();
+
+                // Reset selected images after drawing the line
+                selectedLeft.classList.remove("selected");
+                selectedRight.classList.remove("selected");
+                selectedLeft = null;
+                selectedRight = null;
+                selectedLeftID = null;
+                selectedRightID = null;
+            }
+        }
+
+        function renderImages() {
+            const leftColumn = document.getElementById("leftColumn");
+            const rightColumn = document.getElementById("rightColumn");
+            const maxImages = Math.max(images1.length, images2.length)
+            const imageHeight = (window.innerHeight - 100 - 24 * maxImages) / maxImages;
+            console.log( window.innerHeight / Math.max(images1.length, images2.length))
+
+            images1.forEach((imageSrc, index) => {
+                const img = document.createElement("img");
+                img.src = imageSrc;
+                img.classList.add("image");
+                img.id = `left-${imageSrc}`;
+                img.style.maxHeight = `${imageHeight}px`;
+                img.style.maxWidth = `${imageHeight}px`;
+                img.style.width = `${imageHeight}px`;
+                img.style.height = `${imageHeight}px`;
+                img.onclick = () => handleImageClick('left', imageSrc);
+                leftColumn.appendChild(img);
+            });
+
+            images2.forEach((imageSrc, index) => {
+                const img = document.createElement("img");
+                img.src = imageSrc;
+                img.classList.add("image");
+                img.id = `right-${imageSrc}`;
+                img.style.maxHeight = `${imageHeight}px`;
+                img.style.maxWidth = `${imageHeight}px`;
+                img.style.width = `${imageHeight}px`;
+                img.style.height = `${imageHeight}px`;
+                img.onclick = () => handleImageClick('right', imageSrc);
+                rightColumn.appendChild(img);
+            });
+        }
+
+        // Function to send data to Airtable
+        function sendDataToAirtable(image1, image2) {
+            const dataToSend = {
+                fields: {
+                    "Naam 1": image1.split('/')[1],
+                    "Naam 2": image2.split('/')[1],
+                }
+            };
+
+            fetch(AIRTABLE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${AIRTABLE_PERSONAL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataToSend)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        document.getElementById("submitButton").onclick = function() {
+            console.log("Connections: ", connections);
+            connections.forEach((connection) => {
+                sendDataToAirtable(connection[0], connection[1]);
+            });
+            // You can integrate a server request here to persist the connections (e.g., Google Sheets API)
+        };
+            
+            window.onload = function() {
+                renderImages();
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+    </script>
+
+</body>
+</html>
