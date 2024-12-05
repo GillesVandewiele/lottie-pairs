@@ -57,7 +57,7 @@
         <div class="column" id="rightColumn" style="float: right;"></div>
     </div>
 
-    <button id="submitButton" disabled>Submit</button>
+    <button id="submitButton" disabled>Verzend</button>
 
     <canvas id="canvas"></canvas>
 
@@ -147,6 +147,8 @@
 
                 if(connections.length == Math.min(images1.length, images2.length)){
                     document.getElementById("submitButton").disabled = false;
+                } else{
+                    document.getElementById("submitButton").disabled = true;
 
                 }
 
@@ -228,6 +230,7 @@
             connections.forEach((connection) => {
                 sendDataToAirtable(connection[0], connection[1]);
             });
+            document.body.innerHTML = "<h1 style='text-align: center; margin-top: 20%; font-size: 2em;'>Bedankt om mee te doen!</h1>";
             // You can integrate a server request here to persist the connections (e.g., Google Sheets API)
         };
             
